@@ -40,7 +40,8 @@ async function run() {
 
     //challenges api
     app.get('/challenges', async (req,res)=>{
-      const cursor=challengesCollection.find({})
+      const limit=parseInt(req.query.limit)||0
+      const cursor=challengesCollection.find({}).sort({startDate:-1}).limit(limit)
       const result=await cursor.toArray()
       res.send(result)
     })
