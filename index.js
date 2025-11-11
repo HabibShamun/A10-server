@@ -37,14 +37,50 @@ async function run() {
     
     const db=client.db('EcoTrack_db')
     const challengesCollection=db.collection('challenges')
+    const userCollection=db.collection('users')
 
     //challenges api
-    app.get('/challenges', async (req,res)=>{
-      const limit=parseInt(req.query.limit)||0
-      const cursor=challengesCollection.find({}).sort({startDate:-1}).limit(limit)
-      const result=await cursor.toArray()
-      res.send(result)
-    })
+  app.get('/challenges', async (req, res) => {
+  try {
+    const { limit, status, sortBy = "startDate", order = "desc" } = req.query;
+
+    // Format current date as "YYYY-MM-DD"
+    const now = new Date();
+    const nowString = now.toISOString().split('T')[0]; // "2025-11-11"
+
+    let filter = {};
+
+    if (status === "running") {
+      filter = {
+        startDate: { $lte: nowString },
+        endDate: { $gte: nowString }
+      };
+    } else if (status === "upcoming") {
+      filter = {
+        startDate: { $gt: nowString }
+      };
+    } else if (status === "ended") {
+      filter = {
+        endDate: { $lt: nowString }
+      };
+    }
+
+    const sortOrder = order === "asc" ? 1 : -1;
+    let query = challengesCollection.find(filter).sort({ [sortBy]: sortOrder });
+
+    if (limit) {
+      query = query.limit(parseInt(limit));
+    }
+
+    const result = await query.toArray();
+    res.send(result);
+  } catch (error) {
+    console.error("Error fetching challenges:", error);
+    res.status(500).send({ error: "Failed to fetch challenges" });
+  }
+});
+
+
     app.post('/challenges',async (req,res)=> {
       const newChallenge=req.body
       const result= await challengesCollection.insertOne(newChallenge)
@@ -64,7 +100,10 @@ async function run() {
       res.send(result)
     })
 
+    //user api
+    app.post('/challenges/join/:id', async (req,res)=>{
 
+    })
 
 
     await client.db("admin").command({ ping: 1 });
