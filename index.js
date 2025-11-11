@@ -37,6 +37,7 @@ async function run() {
     
     const db=client.db('EcoTrack_db')
     const challengesCollection=db.collection('challenges')
+    const tipsCollection=db.collection('tips')
     const userCollection=db.collection('users')
 
     //challenges api
@@ -97,6 +98,19 @@ async function run() {
       const id=req.params.id
       const query={_id:new ObjectId(id)}
       const result=await challengesCollection.findOne(query)
+      res.send(result)
+    })
+
+    //tips api
+    app.post('/tips', async(req,res)=>{
+            const newTip=req.body
+      const result= await tipsCollection.insertOne(newTip)
+      res.send(result)
+    })
+
+    app.get('/tips', async(req,res)=>{
+      const cursor= tipsCollection.find({})
+      const result = await cursor.toArray()
       res.send(result)
     })
 
