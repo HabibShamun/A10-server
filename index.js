@@ -243,13 +243,34 @@ app.get('/userChallenges/joined', async (req, res) => {
   }
 });
 
- app.delete('/deleteUser', async (req,res)=>{
+const { ObjectId } = require('mongodb');
 
-    const {userId}=req.query
-    const id={userId:new ObjectId(userId)}
-    await userCollection.deleteOne({userId})
-    await userChallengesCollection.deleteMany({id})
- })
+app.delete('/deleteUser', async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'userId is required.' });
+    }
+
+    const objectId = new ObjectId(userId);
+
+    // Delete user from users collection
+    const userResult = await userCollection.deleteOne({ _id: objectId });
+
+    // Delete all challenges associated with the user
+    const challengeResult = await userChallengesCollection.deleteMany({ userId: objectId });
+
+    res.status(200).json({
+      message: 'User and related challenges deleted successfully.',
+      userDeleted: userResult.deletedCount,
+      challengesDeleted: challengeResult.deletedCount,
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
 
 
     await client.db("admin").command({ ping: 1 });
