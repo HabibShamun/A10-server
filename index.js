@@ -45,27 +45,22 @@ async function run() {
     //challenges api
   app.get('/challenges', async (req, res) => {
   try {
-    const { limit, status, sortBy = "startDate", order = "desc" } = req.query;
+    const { limit, status, category, sortBy = "startDate", order = "desc" } = req.query;
 
-    // Format current date as "YYYY-MM-DD"
-    const now = new Date();
-    const nowString = now.toISOString().split('T')[0]; // "2025-11-11"
-
+    const nowString = new Date().toISOString().split('T')[0];
     let filter = {};
 
     if (status === "running") {
-      filter = {
-        startDate: { $lte: nowString },
-        endDate: { $gte: nowString }
-      };
+      filter.startDate = { $lte: nowString };
+      filter.endDate = { $gte: nowString };
     } else if (status === "upcoming") {
-      filter = {
-        startDate: { $gt: nowString }
-      };
+      filter.startDate = { $gt: nowString };
     } else if (status === "ended") {
-      filter = {
-        endDate: { $lt: nowString }
-      };
+      filter.endDate = { $lt: nowString };
+    }
+
+    if (category && category !== "All") {
+      filter.category = category;
     }
 
     const sortOrder = order === "asc" ? 1 : -1;
@@ -78,8 +73,21 @@ async function run() {
     const result = await query.toArray();
     res.send(result);
   } catch (error) {
-    console.error("Error fetching challenges:", error);
     res.status(500).send({ error: "Failed to fetch challenges" });
+  }
+});
+app.get('/challengeCategories', async (req, res) => {
+  try {
+    const cursor = challengesCollection.find({}, { projection: { category: 1 } });
+    const documents = await cursor.toArray();
+
+    // Extract and deduplicate categories
+    const categories = [...new Set(documents.map(doc => doc.category).filter(Boolean))];
+
+    res.send(categories);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).send({ error: 'Failed to fetch categories' });
   }
 });
 
