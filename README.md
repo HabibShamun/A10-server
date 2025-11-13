@@ -1,5 +1,5 @@
 Server/API: EcoTrack Backend — MongoDB + Express
-Live URL: 
+Live URL: https://ecotrack-server-six.vercel.app/
 
 The EcoTrack backend powers the entire platform with a robust RESTful API built on Express and MongoDB.
 
