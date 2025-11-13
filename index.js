@@ -33,7 +33,7 @@ app.get('/', (req,res)=>{
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     
     const db=client.db('EcoTrack_db')
     const challengesCollection=db.collection('challenges')
@@ -393,7 +393,7 @@ app.delete('/deleteUser', async (req, res) => {
 });
 
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
