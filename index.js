@@ -131,23 +131,127 @@ app.get('/challengeCategories', async (req, res) => {
       const result= await cursor.toArray()
       res.send(result)
     })
-    app.post('/userChallenges', async (req,res)=>{
-      const newUserChallenge=req.body
-      const result= await userChallengesCollection.insertOne(newUserChallenge)
-      res.send(result)
-    })
+app.post('/userChallenges', async (req, res) => {
+  const newUserChallenge = {
+    ...req.body,
+    status: 'ongoing',
+    progress: 0,
+    joinedAt: new Date().toISOString(),
+  };
+
+  try {
+    const result = await userChallengesCollection.insertOne(newUserChallenge);
+
+    await challengesCollection.updateOne(
+      { _id: new ObjectId(newUserChallenge.challengeId) },
+      { $inc: { participants: 1 } }
+    );
+
+    res.send(result);
+  } catch (error) {
+    console.error('Error joining challenge:', error);
+    res.status(500).send({ error: 'Failed to join challenge' });
+  }
+});
+app.get('/userChallenges/summary', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required.' });
+    }
+
+    // Get all challenges
+    const allChallenges = await challengesCollection.find({}).toArray();
+
+    // Get user joined challenges
+    const userChallenges = await userChallengesCollection.find({ userId }).toArray();
+
+    const joinedIds = userChallenges.map(c => c.challengeId.toString());
+    const totalJoined = userChallenges.length;
+    const finished = userChallenges.filter(c => c.status === 'finished').length;
+    const ongoing = userChallenges.filter(c => c.status === 'ongoing').length;
+
+    // Not started = all challenges not joined
+    const notStarted = allChallenges.filter(c => !joinedIds.includes(c._id.toString())).length;
+
+    const averageProgress = totalJoined > 0
+      ? Math.round(userChallenges.reduce((sum, c) => sum + (c.progress || 0), 0) / totalJoined)
+      : 0;
+
+    res.json({
+      totalChallenges: allChallenges.length,
+      totalJoined,
+      finished,
+      ongoing,
+      notStarted,
+      averageProgress,
+    });
+  } catch (error) {
+    console.error('Error generating user challenge summary:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+app.patch('/userChallenges/update', async (req, res) => {
+  const { userId, challengeId, status, progress } = req.body;
+
+  if (!userId || !challengeId) {
+    return res.status(400).json({ error: 'userId and challengeId are required.' });
+  }
+
+  const updateFields = {};
+  if (status) updateFields.status = status;
+  if (typeof progress === 'number') updateFields.progress = progress;
+
+  try {
+    const result = await userChallengesCollection.updateOne(
+      { userId, challengeId },
+      { $set: updateFields }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: 'No matching challenge found or no changes made.' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating challenge progress/status:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
     app.get('/userChallenges/check-status', async (req, res) => {
       const {userId,challengeId}=req.query
       const joined = await userChallengesCollection.findOne({userId,challengeId})
 
       res.json({joined: !!joined})
     })
-    app.delete('/userChallenges', async (req, res) => {
-       const {userId,challengeId}=req.query
-      const joined = await userChallengesCollection.deleteOne({userId,challengeId})
+app.delete('/userChallenges', async (req, res) => {
+  try {
+    const { userId, challengeId } = req.query;
 
-      res.json({success: !!true})
+    if (!userId || !challengeId) {
+      return res.status(400).json({ error: 'userId and challengeId are required.' });
+    }
+
+    // Delete the userChallenge entry
+    const deleteResult = await userChallengesCollection.deleteOne({ userId, challengeId });
+
+    // If a record was deleted, decrement participants
+    if (deleteResult.deletedCount > 0) {
+      await challengesCollection.updateOne(
+        { _id: new ObjectId(challengeId) },
+        { $inc: { participants: -1 } }
+      );
+    }
+
+    res.json({ success: deleteResult.deletedCount > 0 });
+  } catch (error) {
+    console.error('Error removing challenge:', error);
+    res.status(500).json({ error: 'Failed to remove challenge.' });
+  }
 });
+
 
 //my activities api
 
@@ -165,9 +269,6 @@ app.get('/userChallenges/joined', async (req, res) => {
     res.status(500).send({ error: 'Internal server error' });
   }
 });
-
-
-
 
     //tips api
     app.post('/tips', async(req,res)=>{
@@ -229,6 +330,17 @@ app.get('/userChallenges/joined', async (req, res) => {
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
+//number of users
+app.get('/users/count', async (req, res) => {
+  try {
+    const count = await userCollection.countDocuments();
+    res.json({ count });
+  } catch (error) {
+    console.error('Error counting users:', error);
+    res.status(500).json({ error: 'Failed to count users' });
+  }
+});
+
 
 
     //api get
